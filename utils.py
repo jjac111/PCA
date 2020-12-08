@@ -10,16 +10,16 @@ from IPython.display import display, clear_output
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.model_selection import StratifiedShuffleSplit
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.layers import Dense, Dropout, Input
 from keras.optimizers import Adam
 from keras.callbacks import Callback
 
 
-def read_data():
+def read_data(dir):
     images = []
     labels = []
-    for filename in os.listdir(data_dir):
+    for filename in os.listdir(dir):
         img = Image.open(data_dir + filename).convert('L')
         img = np.asarray(img)
         images.append(img)
@@ -49,7 +49,7 @@ def read_data():
 
 
 def do_PCA(manually_select):
-    images, shape, labels, uniques = read_data()
+    images, shape, labels, uniques = read_data(data_dir)
 
     if manually_select:
         n_components = chosen_components
@@ -98,13 +98,11 @@ def do_PCA(manually_select):
 def do_training(data, labels, split=0.2):
     input_len = data.shape[1]
     inp = Input((input_len,))
-    x = Dense(3 * input_len, activation='tanh')(inp)
-    x = Dropout(dropout)(x)
-    x = Dense(2 * input_len, activation='tanh')(x)
+    x = Dense(2 * input_len, activation='tanh')(inp)
     x = Dropout(dropout)(x)
     x = Dense(int(input_len / 2), activation='tanh')(x)
     x = Dropout(dropout)(x)
-    out = Dense(labels.shape[1])(x)
+    out = Dense(labels.shape[1], activation='softmax')(x)
 
     model = Model(inp, out)
 
@@ -122,7 +120,9 @@ def do_training(data, labels, split=0.2):
     test_y = np.take(labels, test_idx, axis=0)
 
     start = time()
-    history = model.fit(train_X, train_y, validation_data=(test_X, test_y), batch_size=batch_size, epochs=epochs,
+    history = model.fit(train_X, train_y,
+                        validation_data=(test_X, test_y),
+                        batch_size=batch_size, epochs=epochs,
                         verbose=0, callbacks=[PlotLearning()])
     # plt.plot(history.history['loss'], 'b', label='Loss')
     # plt.plot(history.history['val_loss'], 'r', label='Validation Loss')
@@ -132,10 +132,24 @@ def do_training(data, labels, split=0.2):
     # plt.show()
     now = time() - start
     print(f'Finished training in {timedelta(seconds=round(now))}')
+    model.save('model.h5')
 
     metrics = model.evaluate(test_X, test_y)
 
     print(f'Evaluation metrics:\n{model.metrics_names}\n{metrics}')
+
+
+def do_testing(pca):
+    images, shape, labels, uniques = read_data(test_dir)
+
+    transformed = pca.transform(images)
+
+    model = load_model('model.h5', compile=True)
+
+    metrics = model.evaluate(transformed, labels)
+
+    print(f'Evaluation metrics for prediction of new test samples:\n{model.metrics_names}\n{metrics}')
+
 
 
 # Code by user kav, obtained from https://gist.github.com/stared/dfb4dfaf6d9a8501cd1cc8b8cb806d2e

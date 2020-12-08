@@ -5,7 +5,7 @@ n_components = 100
 chosen_components = 15
 target_variance = 0.95
 
-dropout = 0.2
-batch_size = 1
+dropout = 0.5
+batch_size = 3
 epochs = 10000
 lr = 0.005
